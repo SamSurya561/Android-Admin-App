@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "316701396353",
+    "firebase_url": "https://sharmila-portfolio-default-rtdb.firebaseio.com",
+    "project_id": "sharmila-portfolio",
+    "storage_bucket": "sharmila-portfolio.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:316701396353:android:6b0e0de493d8fb01292c80",
+        "android_client_info": {
+          "package_name": "com.surya.portfolioadmin"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "316701396353-rrrbhvhpiht3hea36mvthdl00opikqki.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.surya.portfolioadmin",
+            "certificate_hash": "cc85f8fb19448559ff6a8be5cfc7ee74ffa88c68"
+          }
+        },
+        {
+          "client_id": "316701396353-veh8j52i3erj95spscq4pq35k0bqrokf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA8Inqj8vqFYIxB-BGft_9hBQtb2gPcts4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "316701396353-veh8j52i3erj95spscq4pq35k0bqrokf.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

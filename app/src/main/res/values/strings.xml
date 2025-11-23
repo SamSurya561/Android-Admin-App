@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sharms Admin</string>
+
+    <!--
+    IMPORTANT: Replace this value with the "client_id" that starts with a number
+    from your app/google-services.json file.
+    -->
+    <string name="default_web_client_id">316701396353-q6cg90unv17nlp9vpetmqfiopn3rsomk.apps.googleusercontent.com</string>
+
+</resources>
