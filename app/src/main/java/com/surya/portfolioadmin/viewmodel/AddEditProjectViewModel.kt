@@ -2,6 +2,7 @@ package com.surya.portfolioadmin.viewmodel
 
 import android.net.Uri
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -17,16 +18,21 @@ class AddEditProjectViewModel : ViewModel() {
     var description by mutableStateOf("")
     var selectedCategoryId by mutableStateOf("")
     var layout by mutableStateOf("regular")
-    var selectedImageUri by mutableStateOf<Uri?>(null)
+
+    // --- NEW FIELDS FOR IMAGES ---
+    var selectedCoverImageUri by mutableStateOf<Uri?>(null)
+    var existingCoverImageUrl by mutableStateOf("")
+
+    // Gallery images
+    var selectedGalleryUris = mutableStateListOf<Uri>()
+    var existingGalleryUrls = mutableStateListOf<String>()
 
     var uiState by mutableStateOf<UiState>(UiState.Idle)
         private set
 
-    // New state to hold the list of categories for the dropdown
     var categories by mutableStateOf<List<Category>>(emptyList())
 
     init {
-        // Fetch categories as soon as the ViewModel is created
         viewModelScope.launch {
             categories = FirestoreService.getCategories()
         }
@@ -41,8 +47,15 @@ class AddEditProjectViewModel : ViewModel() {
                 project = loadedProject
                 title = loadedProject.title
                 description = loadedProject.description
-                selectedCategoryId = loadedProject.category // This is now an ID
+                selectedCategoryId = loadedProject.category
                 layout = loadedProject.layout
+
+                existingCoverImageUrl = loadedProject.imageUrl
+
+                // Load existing gallery URLs
+                existingGalleryUrls.clear()
+                existingGalleryUrls.addAll(loadedProject.images)
+
                 uiState = UiState.Success("Project loaded")
             } else {
                 uiState = UiState.Error("Failed to load project")
@@ -50,21 +63,54 @@ class AddEditProjectViewModel : ViewModel() {
         }
     }
 
+    fun addGalleryImages(uris: List<Uri>) {
+        selectedGalleryUris.addAll(uris)
+    }
+
+    fun removeNewGalleryImage(uri: Uri) {
+        selectedGalleryUris.remove(uri)
+    }
+
+    fun removeExistingGalleryImage(url: String) {
+        existingGalleryUrls.remove(url)
+    }
+
     fun saveProject(onSuccess: () -> Unit) {
-        // Prevent saving if no category is selected
         if (selectedCategoryId.isBlank()) {
             uiState = UiState.Error("Please select a category.")
+            return
+        }
+        // Require at least a cover image (either new or existing)
+        if (selectedCoverImageUri == null && existingCoverImageUrl.isBlank()) {
+            uiState = UiState.Error("Please select a cover image.")
             return
         }
 
         viewModelScope.launch {
             uiState = UiState.Loading
             val isSuccess = if (project == null) {
-                val newProject = Project(title = title, description = description, category = selectedCategoryId, layout = layout)
-                FirestoreService.addProject(newProject, selectedImageUri)
+                // Add new
+                val newProject = Project(
+                    title = title,
+                    description = description,
+                    category = selectedCategoryId,
+                    layout = layout
+                )
+                FirestoreService.addProject(newProject, selectedCoverImageUri, selectedGalleryUris)
             } else {
-                val updatedProject = project!!.copy(title = title, description = description, category = selectedCategoryId, layout = layout)
-                FirestoreService.updateProjectWithImage(updatedProject, selectedImageUri)
+                // Update existing
+                val updatedProject = project!!.copy(
+                    title = title,
+                    description = description,
+                    category = selectedCategoryId,
+                    layout = layout
+                )
+                FirestoreService.updateProject(
+                    project = updatedProject,
+                    newCoverUri = selectedCoverImageUri,
+                    newGalleryUris = selectedGalleryUris,
+                    finalGalleryUrls = existingGalleryUrls
+                )
             }
 
             if (isSuccess) {

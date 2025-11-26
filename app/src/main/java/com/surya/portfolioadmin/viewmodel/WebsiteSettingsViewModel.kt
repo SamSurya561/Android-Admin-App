@@ -1,15 +1,20 @@
 package com.surya.portfolioadmin.viewmodel
 
 import android.app.Application
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.surya.portfolioadmin.data.Skill
 import com.surya.portfolioadmin.data.WebsiteSettings
 import com.surya.portfolioadmin.FirestoreService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
 
 sealed interface UiState {
     object Idle : UiState
@@ -38,19 +43,93 @@ class WebsiteSettingsViewModel(application: Application) : AndroidViewModel(appl
         }
     }
 
+    // --- Image Upload Logic ---
     fun updateImage(fieldName: String, uri: Uri) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = UiState.Loading
-            val newUrl = FirestoreService.updateImageUrl(fieldName, uri)
-            if (newUrl != null) {
-                fetchSettings()
-                _uiState.value = UiState.Success("$fieldName image updated!")
+            val compressedBytes = compressImage(getApplication<Application>().applicationContext, uri)
+            if (compressedBytes != null) {
+                val newUrl = FirestoreService.updateImageBytes(fieldName, compressedBytes)
+                if (newUrl != null) {
+                    fetchSettings()
+                    _uiState.value = UiState.Success("$fieldName image updated!")
+                } else {
+                    _uiState.value = UiState.Error("Upload failed. Check internet.")
+                }
             } else {
-                _uiState.value = UiState.Error("Image update failed.")
+                _uiState.value = UiState.Error("Could not process image.")
             }
         }
     }
 
+    private fun compressImage(context: Context, uri: Uri): ByteArray? {
+        return try {
+            val inputStream = context.contentResolver.openInputStream(uri)
+            val original = BitmapFactory.decodeStream(inputStream)
+            inputStream?.close()
+            if (original == null) return null
+            val maxDim = 1024
+            val ratio = original.width.toFloat() / original.height.toFloat()
+            val width = if (ratio > 1) maxDim else (maxDim * ratio).toInt()
+            val height = if (ratio > 1) (maxDim / ratio).toInt() else maxDim
+            val scaled = Bitmap.createScaledBitmap(original, width, height, true)
+            val out = ByteArrayOutputStream()
+            scaled.compress(Bitmap.CompressFormat.JPEG, 80, out)
+            out.toByteArray()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    // --- NEW: Light/Dark Mode Updates ---
+
+    // General Type (applies to both usually, or just stores the preference)
+    fun updateBackgroundType(type: String) {
+        updateSettingField("backgroundType", type)
+    }
+
+    // Light Mode
+    fun updateLightSolidColor(color: String) {
+        updateSettingField("lightBackgroundColor", color)
+    }
+
+    fun updateLightGradient(start: String, end: String) {
+        viewModelScope.launch {
+            FirestoreService.updateSettingsField("lightGradientStart", start)
+            FirestoreService.updateSettingsField("lightGradientEnd", end)
+            fetchSettings()
+        }
+    }
+
+    // Dark Mode
+    fun updateDarkSolidColor(color: String) {
+        updateSettingField("darkBackgroundColor", color)
+    }
+
+    fun updateDarkGradient(start: String, end: String) {
+        viewModelScope.launch {
+            FirestoreService.updateSettingsField("darkGradientStart", start)
+            FirestoreService.updateSettingsField("darkGradientEnd", end)
+            fetchSettings()
+        }
+    }
+
+    fun updateAccentColor(color: String) {
+        updateSettingField("accentColor", color)
+    }
+
+    private fun updateSettingField(field: String, value: Any) {
+        viewModelScope.launch {
+            if (FirestoreService.updateSettingsField(field, value)) {
+                fetchSettings()
+            } else {
+                _uiState.value = UiState.Error("Failed to update $field")
+            }
+        }
+    }
+
+    // --- Existing Methods (CV, Skills) ---
     fun updateCvUrl(newUrl: String) {
         viewModelScope.launch {
             if (FirestoreService.updateCvUrl(newUrl)) {
@@ -69,12 +148,12 @@ class WebsiteSettingsViewModel(application: Application) : AndroidViewModel(appl
             if (newUrl != null) {
                 if (FirestoreService.updateCvUrl(newUrl)) {
                     fetchSettings()
-                    _uiState.value = UiState.Success("CV uploaded and updated!")
+                    _uiState.value = UiState.Success("CV uploaded!")
                 } else {
-                    _uiState.value = UiState.Error("CV URL update failed.")
+                    _uiState.value = UiState.Error("CV update failed.")
                 }
             } else {
-                _uiState.value = UiState.Error("CV file upload failed.")
+                _uiState.value = UiState.Error("CV upload failed.")
             }
         }
     }
@@ -90,27 +169,22 @@ class WebsiteSettingsViewModel(application: Application) : AndroidViewModel(appl
         updateSkillsList(currentSkills - skill)
     }
 
-    fun updateSkill(originalSkill: Skill, newName: String, newPercentage: Int, newCategory: String) {
-        val currentSkills = _settings.value?.skills.orEmpty().toMutableList()
-        val index = currentSkills.indexOf(originalSkill)
+    fun updateSkill(original: Skill, name: String, pct: Int, cat: String) {
+        val list = _settings.value?.skills.orEmpty().toMutableList()
+        val index = list.indexOf(original)
         if (index != -1) {
-            val updatedSkill = originalSkill.copy(
-                name = newName,
-                percentage = newPercentage,
-                category = newCategory
-            )
-            currentSkills[index] = updatedSkill
-            updateSkillsList(currentSkills)
+            list[index] = original.copy(name = name, percentage = pct, category = cat)
+            updateSkillsList(list)
         }
     }
 
-    private fun updateSkillsList(updatedList: List<Skill>) {
+    private fun updateSkillsList(list: List<Skill>) {
         viewModelScope.launch {
-            if (FirestoreService.updateSkills(updatedList)) {
+            if (FirestoreService.updateSkills(list)) {
                 fetchSettings()
                 _uiState.value = UiState.Success("Skills updated!")
             } else {
-                _uiState.value = UiState.Error("Skill update failed.")
+                _uiState.value = UiState.Error("Failed to update skills.")
             }
         }
     }

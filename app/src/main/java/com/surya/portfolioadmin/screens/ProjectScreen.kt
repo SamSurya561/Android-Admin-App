@@ -8,7 +8,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
@@ -50,30 +49,31 @@ fun ProjectScreen(
         if (isLoading) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         } else if (projects.isEmpty()) {
-            Text("No projects found. Add one using the + button.", modifier = Modifier.align(Alignment.Center))
+            Column(
+                modifier = Modifier.align(Alignment.Center),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("No projects found.")
+                Text("Tap '+' to create one.", style = MaterialTheme.typography.bodySmall)
+            }
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
+                columns = GridCells.Fixed(2), // Standard 2-column grid
                 contentPadding = PaddingValues(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(projects, key = { it.id }, span = { project ->
-                    val span = when (project.layout) {
-                        "wide" -> 2
-                        else -> 1
-                    }
-                    GridItemSpan(span)
-                }) { project ->
+                // Removed the 'span' parameter so every item is 1x1
+                items(projects, key = { it.id }) { project ->
                     AnimatedVisibility(
                         visible = isVisible,
-                        enter = fadeIn(animationSpec = tween(durationMillis = 500, delayMillis = projects.indexOf(project) * 100)) +
+                        enter = fadeIn(animationSpec = tween(durationMillis = 500)) +
                                 slideInVertically(
-                                    initialOffsetY = { it / 2 },
-                                    animationSpec = tween(durationMillis = 500, delayMillis = projects.indexOf(project) * 100)
+                                    initialOffsetY = { it / 4 }, // Reduced offset for subtler effect
+                                    animationSpec = tween(durationMillis = 500)
                                 )
                     ) {
-                        BentoProjectCard(
+                        ProjectCard(
                             project = project,
                             onCardClick = { onEditProject(project.id) },
                             onDelete = { onDeleteProject(project) }
@@ -86,22 +86,21 @@ fun ProjectScreen(
 }
 
 @Composable
-fun BentoProjectCard(
+fun ProjectCard(
     project: Project,
     onCardClick: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val cardHeight = when (project.layout) {
-        "tall" -> 300.dp
-        else -> 150.dp
-    }
+    // Standard fixed height for all cards
+    val cardHeight = 220.dp
 
     Card(
         shape = RoundedCornerShape(24.dp),
         modifier = Modifier
             .fillMaxWidth()
             .height(cardHeight)
-            .clickable(onClick = onCardClick)
+            .clickable(onClick = onCardClick),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             AsyncImage(
@@ -110,6 +109,8 @@ fun BentoProjectCard(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
+
+            // Gradient overlay for text visibility
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -117,11 +118,14 @@ fun BentoProjectCard(
                         brush = Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.8f)
-                            )
+                                Color.Black.copy(alpha = 0.7f)
+                            ),
+                            startY = 150f
                         )
                     )
             )
+
+            // Content
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -132,27 +136,34 @@ fun BentoProjectCard(
                     text = project.title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = Color.White,
+                    maxLines = 2
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = project.category, // This will show the category ID. A future improvement could be to show the name.
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.8f)
+                    text = project.category,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.8f),
+                    modifier = Modifier
+                        .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             }
 
+            // Delete Button
             IconButton(
                 onClick = onDelete,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(4.dp)
+                    .padding(8.dp)
                     .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.4f))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
+                    .size(32.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "Delete Project",
-                    tint = Color.White,
+                    tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(18.dp)
                 )
             }

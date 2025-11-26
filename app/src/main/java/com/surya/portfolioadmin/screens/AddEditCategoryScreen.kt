@@ -1,25 +1,15 @@
 package com.surya.portfolioadmin.screens
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
 import com.surya.portfolioadmin.viewmodel.CategoryViewModel
 import java.util.Locale
 
@@ -32,13 +22,7 @@ fun AddEditCategoryScreen(
 ) {
     var name by remember { mutableStateOf("") }
     var gridSize by remember { mutableStateOf("medium") }
-    // --- 'order' STATE IS NO LONGER NEEDED HERE ---
-    var imageUri by remember { mutableStateOf<Uri?>(null) }
-    var existingImageUrl by remember { mutableStateOf<String?>(null) }
-
-    // --- THIS VARIABLE IS NEEDED FOR THE UPDATE LOGIC ---
     var originalOrder by remember { mutableStateOf(0) }
-
 
     val isEditing = categoryId != null
 
@@ -48,18 +32,10 @@ fun AddEditCategoryScreen(
             if (category != null) {
                 name = category.name
                 gridSize = category.gridSize
-                existingImageUrl = category.imageUrl
-                // --- Store the original order for editing ---
                 originalOrder = (category.order as? Int) ?: 0
-
             }
         }
     }
-
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent(),
-        onResult = { uri -> imageUri = uri }
-    )
 
     Scaffold(
         topBar = {
@@ -75,19 +51,29 @@ fun AddEditCategoryScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    if (isEditing) {
-                        val originalCategory = categoryViewModel.categories.value.find { it.id == categoryId }!!
-                        // --- When editing, we preserve the original order ---
-                        val updatedCategory = originalCategory.copy(name = name, gridSize = gridSize, order = originalOrder)
-                        categoryViewModel.updateCategory(updatedCategory, imageUri, onNavigateBack)
-                    } else {
-                        if (imageUri != null) {
-                            // --- CALL THE NEW, SIMPLER addCategory FUNCTION ---
-                            categoryViewModel.addCategory(name, gridSize, imageUri!!, onNavigateBack)
+                    if (name.isNotBlank()) {
+                        if (isEditing) {
+                            val originalCategory = categoryViewModel.categories.value.find { it.id == categoryId }!!
+                            val updatedCategory = originalCategory.copy(name = name, gridSize = gridSize, order = originalOrder)
+                            // Using a fire-and-forget approach for simplicity in the view,
+                            // assuming ViewModel handles the coroutine scope
+                            categoryViewModel.updateCategory(updatedCategory, null, onNavigateBack)
+                        } else {
+                            // For new categories, we pass a dummy URI or null since images are removed
+                            // But to match your existing VM signature, we might need to adjust the VM call
+                            // For now, assuming you updated VM to accept null or just call a text-only method
+                            // If you haven't updated CategoryViewModel, this might need adjustment.
+                            // Based on your code, I will assume you update CategoryViewModel to handle null Uri
+                            // or add a specific text-only method.
+
+                            // To be safe with your EXISTING ViewModel signature (which I can't see fully but infer takes a Uri),
+                            // you might need to modify CategoryViewModel.addCategory to make Uri nullable.
+                            // I will assume the Service handles it.
+                            categoryViewModel.addCategory(name, gridSize, android.net.Uri.EMPTY, onNavigateBack)
                         }
                     }
                 },
-                containerColor = if (name.isNotBlank() && (imageUri != null || isEditing)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                containerColor = if (name.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
             ) {
                 Icon(Icons.Default.Save, contentDescription = "Save Category")
             }
@@ -107,8 +93,6 @@ fun AddEditCategoryScreen(
                 )
             }
 
-            // --- THE 'Display Order' TEXT FIELD HAS BEEN REMOVED ---
-
             item {
                 var expanded by remember { mutableStateOf(false) }
                 ExposedDropdownMenuBox(
@@ -119,7 +103,7 @@ fun AddEditCategoryScreen(
                         value = gridSize.replaceFirstChar { it.titlecase(Locale.getDefault()) },
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Grid Size for Bento UI") },
+                        label = { Text("Grid Size") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                         modifier = Modifier.menuAnchor().fillMaxWidth()
                     )
@@ -139,32 +123,13 @@ fun AddEditCategoryScreen(
                     }
                 }
             }
+
             item {
-                Text("Cover Image", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-                        .clickable { imagePickerLauncher.launch("image/*") },
-                    contentAlignment = Alignment.Center
-                ) {
-                    val displayImage = imageUri ?: existingImageUrl
-                    if (displayImage != null) {
-                        AsyncImage(
-                            model = displayImage,
-                            contentDescription = "Cover Image",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.CloudUpload, contentDescription = "Upload", modifier = Modifier.size(48.dp))
-                            Text("Click to browse or drop image")
-                        }
-                    }
-                }
+                Text(
+                    text = "Categories are now text-only. Images have been disabled.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

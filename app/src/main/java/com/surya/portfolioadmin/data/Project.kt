@@ -6,8 +6,8 @@ data class Project(
     val id: String = "",
     val title: String = "",
     val description: String = "",
-    val imageUrl: String = "",
-    // This field now holds the ID of the category document
+    val imageUrl: String = "", // Cover Image
+    val images: List<String> = emptyList(), // Gallery Images
     val category: String = "",
     val layout: String = "regular",
     val lastUpdated: Date = Date()
